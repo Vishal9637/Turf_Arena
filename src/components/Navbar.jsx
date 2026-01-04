@@ -1,0 +1,214 @@
+import React, { useState } from "react";
+import {
+  Search,
+  Menu,
+  X,
+  MapPin,
+  LogIn,
+  LogOut,
+  User,
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
+import { useAuth } from "../context/AuthContext";
+
+const Navbar = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const navigate = useNavigate();
+  const { user, role } = useAuth();
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/turfs?search=${encodeURIComponent(searchQuery)}`);
+      setIsMenuOpen(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/");
+    setIsMenuOpen(false);
+  };
+
+  const navItems = [
+    { label: "Home", path: "/" },
+    { label: "Turfs", path: "/turfs" },
+    { label: "Bookings", path: "/bookings" },
+  ];
+
+  return (
+    <nav className="bg-white/40 backdrop-blur-md border-b border-green-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2">
+            <MapPin className="w-7 h-7 text-green-500" />
+            <span className="text-xl font-bold text-green-500">
+              TurfArena
+            </span>
+          </Link>
+
+          {/* Desktop */}
+          <div className="hidden md:flex items-center gap-8">
+            {/* Search */}
+            <form onSubmit={handleSearch} className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-5 h-5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search turfs..."
+                className="bg-white/70 text-gray-800 pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400 w-64"
+              />
+            </form>
+
+            {/* Links */}
+            <div className="flex items-center gap-6 text-sm font-medium">
+              {navItems.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.path}
+                  className="text-gray-700 hover:text-green-500 transition"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            {/* AUTH ACTIONS */}
+            {!user ? (
+              <Link
+                to="/login"
+                className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 transition"
+              >
+                <LogIn className="w-4 h-4" />
+                Login
+              </Link>
+            ) : (
+              <div className="flex items-center gap-4">
+                {/* Profile */}
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-1 text-gray-700 hover:text-green-600 transition font-medium"
+                >
+                  <User size={18} />
+                  Profile
+                </Link>
+
+                {/* Owner Dashboard */}
+                {role === "owner" && (
+                  <Link
+                    to="/owner/dashboard"
+                    className="text-sm font-semibold text-green-600 hover:underline"
+                  >
+                    Dashboard
+                  </Link>
+                )}
+
+                {/* Logout */}
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600 transition"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Toggle */}
+          <button
+            className="md:hidden text-gray-700"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        {isMenuOpen && (
+          <div className="md:hidden py-4">
+            <div className="flex flex-col gap-4">
+              {/* Search */}
+              <form onSubmit={handleSearch} className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-5 h-5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search turfs..."
+                  className="bg-white/80 text-gray-800 pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400 w-full"
+                />
+              </form>
+
+              {navItems.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.path}
+                  className="text-gray-700 hover:text-green-500 transition py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+
+              {!user ? (
+                <Link
+                  to="/login"
+                  className="flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-xl"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <LogIn className="w-4 h-4" />
+                  Login
+                </Link>
+              ) : (
+                <>
+                  {/* Profile */}
+                  <Link
+                    to="/profile"
+                    className="flex items-center justify-center gap-2 text-green-600 font-semibold"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <User size={18} />
+                    Profile
+                  </Link>
+
+                  {/* Owner Dashboard */}
+                  {role === "owner" && (
+                    <Link
+                      to="/owner/dashboard"
+                      className="text-center text-green-600 font-semibold"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                  )}
+
+                  {/* Logout */}
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center justify-center gap-2 bg-red-500 text-white py-2 rounded-xl"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;

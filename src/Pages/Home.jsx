@@ -1,78 +1,70 @@
-import React from "react";
-import Hero from "../components/Hero.tsx";
+import React, { useEffect, useState } from "react";
+import Hero from "../components/Hero";
 import { Award, Clock, Star, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
-import TurfCarousel from "../components/TurfCarousel.tsx";
+import TurfCarousel from "../components/TurfCarousel";
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+} from "firebase/firestore";
+import { db } from "../firebase";
 
 const Home = () => {
-  const trendingTurfs = [
-    {
-      id: 1,
-      name: "Greenfield Turf",
-      rating: 4.8,
-      image:
-        "https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=800&q=80",
-      city: "Mumbai",
-      sports: ["Football", "Cricket"],
-    },
-    {
-      id: 2,
-      name: "Arena Sports Hub",
-      rating: 4.6,
-      image:
-        "https://images.unsplash.com/photo-1600679472829-3044539ce8ed?auto=format&fit=crop&w=800&q=80",
-      city: "Pune",
-      sports: ["Box Cricket", "Football"],
-    },
-    {
-      id: 3,
-      name: "Urban Kick Turf",
-      rating: 4.7,
-      image:
-        "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=800&q=80",
-      city: "Delhi",
-      sports: ["Football"],
-    },
-    {
-      id: 4,
-      name: "PlayZone Arena",
-      rating: 4.5,
-      image:
-        "https://images.unsplash.com/photo-1508609349937-5ec4ae374ebf?auto=format&fit=crop&w=800&q=80",
-      city: "Bangalore",
-      sports: ["Cricket", "Football"],
-    },
-    {
-      id: 5,
-      name: "KickOff Sports",
-      rating: 4.9,
-      image:
-        "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80",
-      city: "Hyderabad",
-      sports: ["Football", "Training"],
-    },
-  ];
+  const [trendingTurfs, setTrendingTurfs] = useState([]);
+  const [newTurfs, setNewTurfs] = useState([]);
 
-  const upcomingTurfs = [
-    {
-      id: 6,
-      name: "NextGen Turf Arena",
-      rating: 4.6,
-      image:
-        "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80",
-      city: "Navi Mumbai",
-      sports: ["Football", "Cricket"],
-    },
-    {
-      id: 7,
-      name: "Elite Sports Complex",
-      rating: 4.7,
-      image:
-        "https://images.unsplash.com/photo-1600679472829-3044539ce8ed?auto=format&fit=crop&w=800&q=80",
-      city: "Chennai",
-      sports: ["Multi Sport"],
-    },
-  ];
+  /* ---------- TRENDING TURFS ---------- */
+  useEffect(() => {
+    const q = query(
+      collection(db, "turfs"),
+      orderBy("rating", "desc"),
+      limit(10)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => {
+        const turf = doc.data();
+        return {
+          id: doc.id,
+          ...turf,
+          image: turf.coverImage, // ✅ IMAGE FIX
+          rating: turf.rating || 4.5,
+        };
+      });
+
+      setTrendingTurfs(data);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  /* ---------- NEWLY ADDED TURFS ---------- */
+  useEffect(() => {
+    const q = query(
+      collection(db, "turfs"),
+      orderBy("createdAt", "desc"),
+      limit(10)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => {
+        const turf = doc.data();
+        return {
+          id: doc.id,
+          ...turf,
+          image: turf.coverImage, // ✅ IMAGE FIX
+          rating: turf.rating || 4.5,
+        };
+      });
+
+      setNewTurfs(data);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div>
@@ -125,6 +117,7 @@ const Home = () => {
               <TrendingUp className="w-6 h-6 text-green-500" />
               Trending Turfs
             </h2>
+
             <Link
               to="/turfs?sort=trending"
               className="text-green-500 hover:text-green-400"
@@ -133,16 +126,21 @@ const Home = () => {
             </Link>
           </div>
 
-          <TurfCarousel turfs={trendingTurfs} />
+          {trendingTurfs.length > 0 ? (
+            <TurfCarousel turfs={trendingTurfs} />
+          ) : (
+            <p className="text-zinc-400">No turfs found</p>
+          )}
         </section>
 
-        {/* Upcoming Turfs */}
+        {/* Newly Added Turfs */}
         <section className="mb-12">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Clock className="w-6 h-6 text-green-500" />
               Newly Added Turfs
             </h2>
+
             <Link
               to="/turfs?sort=new"
               className="text-green-500 hover:text-green-400"
@@ -151,7 +149,11 @@ const Home = () => {
             </Link>
           </div>
 
-          <TurfCarousel turfs={upcomingTurfs} />
+          {newTurfs.length > 0 ? (
+            <TurfCarousel turfs={newTurfs} />
+          ) : (
+            <p className="text-zinc-400">No turfs found</p>
+          )}
         </section>
       </main>
     </div>

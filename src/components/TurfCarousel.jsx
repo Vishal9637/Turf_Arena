@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import TurfCard from "./TurfCard.tsx";
+import TurfCard from "./TurfCard.jsx";
 
 const TurfCarousel = ({ turfs }) => {
   const [startIndex, setStartIndex] = useState(0);

@@ -1,41 +1,49 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { MapPin, Star, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const featuredTurfs = [
-  {
-    id: 1,
-    name: "Greenfield Turf",
-    rating: 4.8,
-    city: "Mumbai",
-    description:
-      "Premium football and cricket turf with international-standard grass, flood lights, locker rooms, and ample parking. Perfect for night matches and tournaments.",
-    image:
-      "https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=2000&q=80",
-  },
-  {
-    id: 2,
-    name: "Arena Sports Hub",
-    rating: 4.6,
-    city: "Pune",
-    description:
-      "A modern multi-sport turf facility offering football, box cricket, and training sessions. Ideal for corporate matches and weekend games.",
-    image:
-      "https://images.unsplash.com/photo-1600679472829-3044539ce8ed?auto=format&fit=crop&w=2000&q=80",
-  },
-];
+import { collection, onSnapshot, query, limit } from "firebase/firestore";
+import { db } from "../firebase";
 
 const Hero = () => {
-  const [currentTurf, setCurrentTurf] = React.useState(0);
+  const [turfs, setTurfs] = useState([]);
+  const [currentTurf, setCurrentTurf] = useState(0);
 
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTurf((prev) => (prev + 1) % featuredTurfs.length);
-    }, 8000);
-    return () => clearInterval(timer);
+  /* ---------- FETCH TURFS ---------- */
+  useEffect(() => {
+    const q = query(collection(db, "turfs"), limit(5));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setTurfs(list);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const turf = featuredTurfs[currentTurf];
+  /* ---------- AUTO SLIDER ---------- */
+  useEffect(() => {
+    if (turfs.length === 0) return;
+
+    const timer = setInterval(() => {
+      setCurrentTurf((prev) => (prev + 1) % turfs.length);
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, [turfs]);
+
+  if (turfs.length === 0) {
+    return (
+      <div className="h-[90vh] flex items-center justify-center text-zinc-400">
+        Loading featured turfs...
+      </div>
+    );
+  }
+
+  const turf = turfs[currentTurf];
 
   return (
     <div className="relative h-[90vh] bg-gradient-to-b from-transparent to-black">
@@ -43,7 +51,7 @@ const Hero = () => {
       <div
         className="absolute inset-0 bg-cover bg-center transition-all duration-1000 gradient-mask"
         style={{
-          backgroundImage: `url('${turf.image}')`,
+          backgroundImage: `url('${turf.coverImage}')`,
         }}
       >
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
@@ -52,31 +60,44 @@ const Hero = () => {
       {/* Content */}
       <div className="relative max-w-7xl mx-auto px-6 h-full flex items-center">
         <div className="max-w-2xl">
-          <div className="flex items-center gap-4 mb-4">
+          {/* Badges */}
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            {/* Rating */}
             <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full">
               <Star className="w-5 h-5 text-green-400 fill-current" />
               <span className="text-green-400 font-semibold">
-                {turf.rating} Rating
+                {turf.rating || 4.5} Rating
               </span>
             </div>
 
+            {/* City */}
             <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full">
               <MapPin className="w-5 h-5 text-zinc-300" />
               <span className="text-zinc-300">{turf.city}</span>
             </div>
+
+            {/* Price */}
+            <div className="flex items-center gap-1 bg-green-500/90 text-black px-4 py-1.5 rounded-full font-semibold shadow-lg">
+              ₹{turf.price}/hr
+            </div>
           </div>
 
+          {/* Title */}
           <h1 className="text-5xl md:text-7xl font-bold mb-4 text-white">
             {turf.name}
           </h1>
 
-          <p className="text-zinc-300 text-lg mb-8 line-clamp-3 max-w-xl">
-            {turf.description}
-          </p>
+          {/* Description */}
+          {turf.description && (
+            <p className="text-zinc-300 text-lg mb-8 line-clamp-3 max-w-xl">
+              {turf.description}
+            </p>
+          )}
 
+          {/* Actions */}
           <div className="flex items-center gap-4">
             <Link
-              to={`/turf/${turf.id}`}
+              to={`/turfs/${turf.id}`}
               className="bg-green-500 text-black px-8 py-3 rounded-xl font-semibold flex items-center gap-2 hover:bg-green-400 transition-all hover:scale-105 duration-300"
             >
               <Calendar className="w-5 h-5" />
@@ -84,7 +105,7 @@ const Hero = () => {
             </Link>
 
             <Link
-              to={`/turf/${turf.id}`}
+              to={`/turfs/${turf.id}`}
               className="bg-zinc-900/80 backdrop-blur-md text-white px-8 py-3 rounded-xl font-semibold hover:bg-zinc-800 transition-all hover:scale-105 duration-300"
             >
               View Details
@@ -94,7 +115,7 @@ const Hero = () => {
 
         {/* Slider Dots */}
         <div className="absolute bottom-8 right-6 flex gap-2">
-          {featuredTurfs.map((_, index) => (
+          {turfs.map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrentTurf(index)}
