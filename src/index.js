@@ -4,17 +4,30 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { AuthProvider } from "./context/AuthContext.jsx";
-import { HashRouter } from "react-router-dom";
+import {
+  BrowserRouter,
+  HashRouter,
+} from "react-router-dom";
+
+/**
+ * 🔀 AUTO ROUTER SWITCH
+ * - GitHub Pages → HashRouter
+ * - Vercel / Localhost → BrowserRouter
+ */
+const Router =
+  window.location.hostname.includes("github.io")
+    ? HashRouter
+    : BrowserRouter;
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 root.render(
   <React.StrictMode>
-    <HashRouter>
+    <Router>
       <AuthProvider>
         <App />
       </AuthProvider>
-    </HashRouter>
+    </Router>
   </React.StrictMode>
 );
 
