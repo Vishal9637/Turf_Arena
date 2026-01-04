@@ -1,127 +1,134 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Hero from "../components/Hero";
-import { Award, Clock, Star, TrendingUp } from "lucide-react";
+import {
+  Award,
+  Clock,
+  Star,
+  TrendingUp,
+  Trophy,
+  Flame,
+  Shield,
+  Zap,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import TurfCarousel from "../components/TurfCarousel";
 import {
   collection,
   onSnapshot,
   query,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
 const Home = () => {
-  const [allTurfs, setAllTurfs] = useState([]);
+  const [trendingTurfs, setTrendingTurfs] = useState([]);
+  const [newTurfs, setNewTurfs] = useState([]);
 
-  /* ---------- FETCH ALL TURFS (ONCE) ---------- */
+  /* ---------- TRENDING TURFS ---------- */
   useEffect(() => {
-    const q = query(collection(db, "turfs"));
+    const q = query(
+      collection(db, "turfs"),
+      orderBy("rating", "desc"),
+      limit(10)
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => {
-        const turf = doc.data();
-        return {
+      setTrendingTurfs(
+        snapshot.docs.map((doc) => ({
           id: doc.id,
-          ...turf,
-          image: turf.coverImage,
-          rating: turf.rating || 4.5,
-          createdAt: turf.createdAt?.toMillis
-            ? turf.createdAt.toMillis()
-            : 0,
-        };
-      });
-
-      setAllTurfs(data);
+          ...doc.data(),
+          image: doc.data().coverImage,
+          rating: doc.data().rating || 4.5,
+        }))
+      );
     });
 
     return () => unsubscribe();
   }, []);
 
-  /* ---------- DERIVED SECTIONS ---------- */
+  /* ---------- NEWLY ADDED TURFS ---------- */
+  useEffect(() => {
+    const q = query(
+      collection(db, "turfs"),
+      orderBy("createdAt", "desc"),
+      limit(10)
+    );
 
-  const trendingTurfs = useMemo(() => {
-    return [...allTurfs]
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 10);
-  }, [allTurfs]);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setNewTurfs(
+        snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          image: doc.data().coverImage,
+          rating: doc.data().rating || 4.5,
+        }))
+      );
+    });
 
-  const newTurfs = useMemo(() => {
-    return [...allTurfs]
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 10);
-  }, [allTurfs]);
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div>
       <Hero />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Quick Categories */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+      <main className="max-w-7xl mx-auto px-6 py-10">
+        {/* ================= QUICK ACCESS (SPORTS THEME) ================= */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-14">
           {[
             {
-              icon: TrendingUp,
               label: "Trending",
+              icon: Flame,
               path: "/turfs?sort=trending",
-              color: "bg-green-500",
+              gradient: "from-green-500 to-emerald-500",
             },
             {
-              icon: Star,
               label: "Top Rated",
+              icon: Trophy,
               path: "/turfs?sort=top-rated",
-              color: "bg-emerald-500",
+              gradient: "from-yellow-400 to-orange-500",
             },
             {
-              icon: Clock,
               label: "Available Now",
-              path: "/turfs",
-              color: "bg-blue-500",
+              icon: Zap,
+              path: "/turfs?status=available",
+              gradient: "from-blue-500 to-cyan-500",
             },
             {
-              icon: Award,
               label: "Premium",
-              path: "/turfs",
-              color: "bg-purple-500",
+              icon: Shield,
+              path: "/turfs?type=premium",
+              gradient: "from-purple-500 to-pink-500",
             },
-          ].map((category, index) => (
+          ].map((item, i) => (
             <Link
-              key={index}
-              to={category.path}
-              className={`${category.color} p-4 rounded-xl flex items-center justify-center gap-2 text-white hover:opacity-80 transition`}
+              key={i}
+              to={item.path}
+              className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} p-5 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1`}
             >
-              <category.icon className="w-5 h-5" />
-              <span className="font-medium">
-                {category.label}
-              </span>
+              {/* Glow */}
+              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition" />
+
+              {/* Content */}
+              <div className="relative flex flex-col items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-black/30 flex items-center justify-center backdrop-blur-md">
+                  <item.icon className="w-7 h-7" />
+                </div>
+
+                <span className="font-semibold tracking-wide">
+                  {item.label}
+                </span>
+              </div>
             </Link>
           ))}
         </div>
 
-        {/* ---------- TRENDING ---------- */}
-        <section className="mb-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <TrendingUp className="w-6 h-6 text-green-500" />
-              Trending Turfs
-            </h2>
+        {/* ================= TRENDING TURFS ================= */}
+      
 
-            <Link
-              to="/turfs?sort=trending"
-              className="text-green-500 hover:text-green-400"
-            >
-              View All
-            </Link>
-          </div>
-
-          {trendingTurfs.length > 0 ? (
-            <TurfCarousel turfs={trendingTurfs} />
-          ) : (
-            <p className="text-zinc-400">No turfs found</p>
-          )}
-        </section>
-
-        {/* ---------- NEWLY ADDED ---------- */}
-        <section className="mb-12">
+        {/* ================= NEWLY ADDED TURFS ================= */}
+        <section className="mb-14">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Clock className="w-6 h-6 text-green-500" />
@@ -142,9 +149,6 @@ const Home = () => {
             <p className="text-zinc-400">No turfs found</p>
           )}
         </section>
-
-        {/* ---------- ALL TURFS (OPTIONAL SECTION) ---------- */}
-        
       </main>
     </div>
   );
