@@ -4,7 +4,6 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
   doc,
   getDoc,
 } from "firebase/firestore";
@@ -29,38 +28,53 @@ const OwnerBookings = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [userDetails, setUserDetails] = useState(null);
 
-  /* ---------- FETCH BOOKINGS (NEWEST FIRST) ---------- */
+  /* ---------- FETCH BOOKINGS (SAFE QUERY) ---------- */
   useEffect(() => {
     if (!user) return;
 
     const q = query(
       collection(db, "bookings"),
-      where("ownerId", "==", user.uid),
-      orderBy("createdAt", "desc") // ✅ NEW BOOKINGS ON TOP
+      where("ownerId", "==", user.uid)
+      // ❌ orderBy removed to avoid Firestore crash
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-      setBookings(data);
-      setLoading(false);
-    });
+        setBookings(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Firestore error:", error);
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, [user]);
 
-  /* ---------- OPEN BOOKING DETAILS ---------- */
+  /* ---------- OPEN BOOKING DETAILS (SAFE) ---------- */
   const openBookingDetails = async (booking) => {
     setSelectedBooking(booking);
+    setUserDetails(null);
 
-    const userRef = doc(db, "users", booking.userId);
-    const snap = await getDoc(userRef);
+    // 🚑 IMPORTANT SAFETY CHECK
+    if (!booking.userId) return;
 
-    if (snap.exists()) {
-      setUserDetails(snap.data());
+    try {
+      const userRef = doc(db, "users", booking.userId);
+      const snap = await getDoc(userRef);
+
+      if (snap.exists()) {
+        setUserDetails(snap.data());
+      }
+    } catch (err) {
+      console.error("Failed to fetch user details:", err);
     }
   };
 
@@ -110,7 +124,7 @@ const OwnerBookings = () => {
                 </div>
               </div>
 
-              {/* Status Badge */}
+              {/* Status */}
               <span
                 className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
                   booking.status === "cancelled"
@@ -126,7 +140,7 @@ const OwnerBookings = () => {
       )}
 
       {/* ================= DETAILS MODAL ================= */}
-      {selectedBooking && userDetails && (
+      {selectedBooking && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-zinc-900 w-full max-w-lg rounded-2xl p-6 relative space-y-5">
             <button
@@ -166,20 +180,22 @@ const OwnerBookings = () => {
               <h3 className="font-semibold">User Details</h3>
 
               <p className="flex items-center gap-2">
-                <User size={16} /> {userDetails.name}
+                <User size={16} />
+                {userDetails?.name || selectedBooking.userName || "User"}
               </p>
 
               <p className="flex items-center gap-2">
-                <Mail size={16} /> {selectedBooking.userEmail}
+                <Mail size={16} />
+                {selectedBooking.userEmail}
               </p>
 
-              {userDetails.phone && (
+              {userDetails?.phone && (
                 <p className="flex items-center gap-2">
                   <Phone size={16} /> {userDetails.phone}
                 </p>
               )}
 
-              {userDetails.city && (
+              {userDetails?.city && (
                 <p className="flex items-center gap-2">
                   <MapPin size={16} /> {userDetails.city}
                 </p>

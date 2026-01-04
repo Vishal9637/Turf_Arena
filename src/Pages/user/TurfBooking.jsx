@@ -12,12 +12,31 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
-import { Calendar, Clock, Users, IndianRupee, MapPin } from "lucide-react";
+import {
+  Calendar,
+  Users,
+  IndianRupee,
+  MapPin,
+  Clock,
+  Minus,
+  Plus,
+} from "lucide-react";
 
+const MAX_PLAYERS_PER_SLOT = 22;
+
+/* 🕘 UPDATED TIME SLOTS (9 AM – 12 PM added) */
 const TIME_SLOTS = [
   "06:00 - 07:00",
   "07:00 - 08:00",
   "08:00 - 09:00",
+  "09:00 - 10:00",
+  "10:00 - 11:00",
+  "11:00 - 12:00",
+  "12:00 - 13:00",
+  "13:00 - 14:00",
+  "14:00 - 15:00",
+  "15:00 - 16:00",
+  "16:00 - 17:00",
   "17:00 - 18:00",
   "18:00 - 19:00",
   "19:00 - 20:00",
@@ -32,7 +51,7 @@ const TurfBooking = () => {
   const [date, setDate] = useState("");
   const [slot, setSlot] = useState("");
   const [players, setPlayers] = useState(1);
-  const [slotBookings, setSlotBookings] = useState(0);
+  const [slotBookings, setSlotBookings] = useState({});
   const [loading, setLoading] = useState(false);
 
   /* ---------- FETCH TURF ---------- */
@@ -46,39 +65,56 @@ const TurfBooking = () => {
     fetchTurf();
   }, [turfId]);
 
-  /* ---------- FETCH SLOT BOOKINGS ---------- */
+  /* ---------- FETCH BOOKINGS PER SLOT ---------- */
   useEffect(() => {
-    if (!date || !slot) return;
+    if (!date) return;
 
     const fetchBookings = async () => {
       const q = query(
         collection(db, "bookings"),
         where("turfId", "==", turfId),
-        where("date", "==", date),
-        where("slot", "==", slot)
+        where("date", "==", date)
       );
 
       const snap = await getDocs(q);
-      const totalPlayers = snap.docs.reduce(
-        (sum, d) => sum + d.data().players,
-        0
-      );
+      const counts = {};
 
-      setSlotBookings(totalPlayers);
+      snap.docs.forEach((doc) => {
+        const s = doc.data().slot;
+        counts[s] = (counts[s] || 0) + doc.data().players;
+      });
+
+      setSlotBookings(counts);
     };
 
     fetchBookings();
-  }, [date, slot, turfId]);
+  }, [date, turfId]);
 
-  /* ---------- PRICE CALCULATION ---------- */
-  const pricePerHour = turf?.price || 0;
-  const totalPrice = pricePerHour * players;
+  /* ---------- PRICE ---------- */
+  const pricePerPlayer = turf?.price || 0;
+  const totalPrice = players * pricePerPlayer;
+
+  /* ---------- SLOT COLOR (BookMyShow Style) ---------- */
+  const getSlotStyle = (count = 0) => {
+    if (count >= MAX_PLAYERS_PER_SLOT)
+      return "bg-zinc-800 text-zinc-500 cursor-not-allowed";
+
+    if (count >= 19)
+      return "bg-red-500/20 text-red-400 border-red-400";
+
+    if (count >= 11)
+      return "bg-yellow-500/20 text-yellow-400 border-yellow-400";
+
+    return "bg-green-500/20 text-green-400 border-green-400";
+  };
 
   /* ---------- CONFIRM BOOKING ---------- */
   const confirmBooking = async () => {
     if (!date || !slot) return alert("Select date & time slot");
 
-    if (players + slotBookings > 30) {
+    const alreadyBooked = slotBookings[slot] || 0;
+
+    if (players + alreadyBooked > MAX_PLAYERS_PER_SLOT) {
       return alert("Slot capacity exceeded");
     }
 
@@ -95,7 +131,7 @@ const TurfBooking = () => {
         date,
         slot,
         players,
-        pricePerHour,
+        pricePerPlayer,
         totalAmount: totalPrice,
         status: "confirmed",
         createdAt: serverTimestamp(),
@@ -126,98 +162,110 @@ const TurfBooking = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10 text-white space-y-8">
+    <div className="max-w-6xl mx-auto px-6 py-10 text-white space-y-10">
       {/* ---------- TURF INFO ---------- */}
-      <div className="bg-zinc-900 rounded-2xl p-6 space-y-2">
+      <div className="bg-zinc-900 rounded-2xl p-6">
         <h1 className="text-3xl font-bold">{turf.name}</h1>
-        <div className="flex items-center gap-4 text-zinc-400 text-sm">
-          <div className="flex items-center gap-1">
-            <MapPin size={14} />
-            {turf.city}
-          </div>
-          <div className="flex items-center gap-1 text-green-400 font-semibold">
-            <IndianRupee size={14} />
-            {turf.price} / player
-          </div>
+        <div className="flex gap-4 text-sm text-zinc-400 mt-2">
+          <span className="flex items-center gap-1">
+            <MapPin size={14} /> {turf.city}
+          </span>
+          <span className="flex items-center gap-1 text-green-400 font-semibold">
+            <IndianRupee size={14} /> {turf.price} / player
+          </span>
         </div>
       </div>
 
-      {/* ---------- BOOKING FORM ---------- */}
-      <div className="bg-zinc-900 p-6 rounded-2xl space-y-6">
-        {/* Date */}
+      {/* ---------- DATE ---------- */}
+      <div>
+        <label className="text-sm text-zinc-300 flex items-center gap-2 mb-2">
+          <Calendar size={16} /> Select Date
+        </label>
+        <input
+          type="date"
+          className="bg-zinc-900 p-3 rounded-xl w-full md:w-64"
+          value={date}
+          onChange={(e) => {
+            setDate(e.target.value);
+            setSlot("");
+          }}
+        />
+      </div>
+
+      {/* ---------- TIME SLOTS ---------- */}
+      {date && (
         <div>
-          <label className="text-sm text-zinc-300 flex items-center gap-2 mb-1">
-            <Calendar size={16} /> Date
-          </label>
-          <input
-            type="date"
-            className="w-full p-3 bg-zinc-800 rounded-xl"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Clock size={18} /> Select Time Slot
+          </h2>
 
-        {/* Slot */}
-        <div>
-          <label className="text-sm text-zinc-300 flex items-center gap-2 mb-1">
-            <Clock size={16} /> Time Slot
-          </label>
-          <select
-            className="w-full p-3 bg-zinc-800 rounded-xl"
-            value={slot}
-            onChange={(e) => setSlot(e.target.value)}
-          >
-            <option value="">Select Slot</option>
-            {TIME_SLOTS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {TIME_SLOTS.map((s) => {
+              const count = slotBookings[s] || 0;
+              const disabled = count >= MAX_PLAYERS_PER_SLOT;
 
-          {slot && (
-            <p className="text-sm text-zinc-400 mt-2">
-              Already booked: {slotBookings}/30 players
-            </p>
-          )}
-        </div>
-
-        {/* Players */}
-        <div>
-          <label className="text-sm text-zinc-300 flex items-center gap-2 mb-1">
-            <Users size={16} /> Number of Players
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="30"
-            className="w-full p-3 bg-zinc-800 rounded-xl"
-            value={players}
-            onChange={(e) => setPlayers(Number(e.target.value))}
-          />
-        </div>
-
-        {/* ---------- SUMMARY ---------- */}
-        {(date || slot) && (
-          <div className="bg-zinc-800 p-4 rounded-xl space-y-2 text-sm">
-            <p><b>Date:</b> {date || "-"}</p>
-            <p><b>Slot:</b> {slot || "-"}</p>
-            <p><b>Players:</b> {players}</p>
-            <p className="text-green-400 font-semibold text-lg">
-              Total Price: ₹{totalPrice}
-            </p>
+              return (
+                <button
+                  key={s}
+                  disabled={disabled}
+                  onClick={() => setSlot(s)}
+                  className={`border rounded-xl p-4 text-sm text-center transition
+                    ${getSlotStyle(count)}
+                    ${slot === s ? "ring-2 ring-white" : ""}
+                  `}
+                >
+                  <p className="font-semibold">{s}</p>
+                  <p className="text-xs mt-1">
+                    {count}/{MAX_PLAYERS_PER_SLOT} players
+                  </p>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Confirm */}
+      {/* ---------- PLAYER SELECT ---------- */}
+      {slot && (
+        <div className="bg-zinc-900 p-6 rounded-2xl space-y-4 max-w-md">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Users size={18} /> Number of Players
+          </h3>
+
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setPlayers((p) => Math.max(1, p - 1))}
+              className="p-2 bg-zinc-800 rounded-lg"
+            >
+              <Minus />
+            </button>
+
+            <span className="text-2xl font-bold">{players}</span>
+
+            <button
+              onClick={() => setPlayers((p) => p + 1)}
+              className="p-2 bg-zinc-800 rounded-lg"
+            >
+              <Plus />
+            </button>
+          </div>
+
+          <p className="text-green-400 font-semibold text-lg">
+            Total: ₹{totalPrice}
+          </p>
+        </div>
+      )}
+
+      {/* ---------- CONFIRM ---------- */}
+      {slot && (
         <button
           disabled={loading}
           onClick={confirmBooking}
-          className="w-full bg-green-500 text-black py-3 rounded-xl font-semibold hover:bg-green-400 transition"
+          className="w-full md:w-1/3 bg-green-500 text-black py-3 rounded-xl font-semibold hover:bg-green-400 transition"
         >
           {loading ? "Booking..." : "Confirm Booking"}
         </button>
-      </div>
+      )}
     </div>
   );
 };
