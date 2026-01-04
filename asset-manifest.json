@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/Turf_Arena/static/css/main.7524d396.css",
-    "main.js": "/Turf_Arena/static/js/main.d1987018.js",
+    "main.js": "/Turf_Arena/static/js/main.6410e22b.js",
     "static/js/453.00d8c286.chunk.js": "/Turf_Arena/static/js/453.00d8c286.chunk.js",
     "index.html": "/Turf_Arena/index.html",
     "main.7524d396.css.map": "/Turf_Arena/static/css/main.7524d396.css.map",
-    "main.d1987018.js.map": "/Turf_Arena/static/js/main.d1987018.js.map",
+    "main.6410e22b.js.map": "/Turf_Arena/static/js/main.6410e22b.js.map",
     "453.00d8c286.chunk.js.map": "/Turf_Arena/static/js/453.00d8c286.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.7524d396.css",
-    "static/js/main.d1987018.js"
+    "static/js/main.6410e22b.js"
   ]
 }
