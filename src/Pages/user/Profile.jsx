@@ -8,7 +8,6 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
@@ -69,14 +68,13 @@ const Profile = () => {
     fetchProfile();
   }, [user]);
 
-  /* ---------- FETCH USER BOOKINGS (NEWEST FIRST) ---------- */
+  /* ---------- FETCH USER BOOKINGS (SAFE) ---------- */
   useEffect(() => {
     if (!user) return;
 
     const q = query(
       collection(db, "bookings"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc") // ✅ NEW BOOKINGS ON TOP
+      where("userId", "==", user.uid)
     );
 
     const unsub = onSnapshot(q, async (snap) => {
@@ -84,19 +82,31 @@ const Profile = () => {
         snap.docs.map(async (d) => {
           const booking = d.data();
 
-          const turfSnap = await getDoc(
-            doc(db, "turfs", booking.turfId)
-          );
+          const turfRef = doc(db, "turfs", booking.turfId);
+          const turfSnap = await getDoc(turfRef);
+
+          // ❌ TURF DELETED → REMOVE FROM UI
+          if (!turfSnap.exists()) {
+            return null;
+          }
 
           return {
             id: d.id,
             ...booking,
-            turf: turfSnap.exists() ? turfSnap.data() : null,
+            turf: turfSnap.data(),
+            createdAt: booking.createdAt?.toMillis
+              ? booking.createdAt.toMillis()
+              : 0,
           };
         })
       );
 
-      setBookings(bookingList);
+      // ✅ REMOVE NULL (DELETED TURFS)
+      const filtered = bookingList
+        .filter(Boolean)
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+      setBookings(filtered);
     });
 
     return () => unsub();
@@ -177,9 +187,7 @@ const Profile = () => {
           {/* Form */}
           <div className="md:col-span-2 space-y-6">
             <div>
-              <label className="text-sm text-zinc-400">
-                Full Name
-              </label>
+              <label className="text-sm text-zinc-400">Full Name</label>
               <div className="relative mt-1">
                 <User className="absolute left-3 top-3 text-zinc-500" />
                 <input
@@ -191,9 +199,7 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-400">
-                Email
-              </label>
+              <label className="text-sm text-zinc-400">Email</label>
               <input
                 value={user.email}
                 disabled
@@ -202,9 +208,7 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-400">
-                Phone
-              </label>
+              <label className="text-sm text-zinc-400">Phone</label>
               <div className="relative mt-1">
                 <Phone className="absolute left-3 top-3 text-zinc-500" />
                 <input
@@ -216,9 +220,7 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-400">
-                City
-              </label>
+              <label className="text-sm text-zinc-400">City</label>
               <div className="relative mt-1">
                 <MapPin className="absolute left-3 top-3 text-zinc-500" />
                 <input
@@ -247,71 +249,81 @@ const Profile = () => {
 
         {bookings.length === 0 ? (
           <p className="text-zinc-400">
-            You haven’t booked any turfs yet.
+            You don’t have any active bookings.
           </p>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {bookings.map((b) => (
-              <div
-                key={b.id}
-                onClick={() =>
-                  navigate("/booking-confirmation", {
-                    state: {
-                      bookingId: b.id,
-                      turf: b.turf,
-                      date: b.date,
-                      slot: b.slot,
-                      players: b.players,
-                      totalPrice: b.totalAmount,
-                    },
-                  })
-                }
-                className="bg-zinc-900 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-green-500 transition"
-              >
-                {/* Cover */}
-                <div className="h-48 bg-black">
-                  <img
-                    src={b.turf?.coverImage}
-                    alt={b.turfName}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
+            {bookings.map((b) => {
+              const isCancelled = b.status === "cancelled";
 
-                {/* Details */}
-                <div className="p-5 space-y-3">
-                  <h3 className="text-lg font-semibold">
-                    {b.turfName}
-                  </h3>
-
-                  <div className="text-sm text-zinc-300 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} />
-                      {b.date} • {b.slot}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Users size={14} />
-                      {b.players} Players
-                    </div>
-
-                    <div className="flex items-center gap-2 text-green-400">
-                      <IndianRupee size={14} />
-                      ₹{b.totalAmount}
-                    </div>
+              return (
+                <div
+                  key={b.id}
+                  onClick={() =>
+                    navigate("/booking-confirmation", {
+                      state: {
+                        bookingId: b.id,
+                        turf: b.turf,
+                        date: b.date,
+                        slot: b.slot,
+                        players: b.players,
+                        totalPrice: b.totalAmount,
+                      },
+                    })
+                  }
+                  className={`rounded-xl overflow-hidden cursor-pointer transition
+                    ${
+                      isCancelled
+                        ? "bg-zinc-900 opacity-80 ring-1 ring-red-500/40"
+                        : "bg-zinc-900 hover:ring-2 hover:ring-green-500"
+                    }
+                  `}
+                >
+                  {/* Cover */}
+                  <div className="h-48 bg-black">
+                    <img
+                      src={b.turf.coverImage}
+                      alt={b.turfName}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
 
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                      b.status === "cancelled"
-                        ? "bg-red-500/20 text-red-400"
-                        : "bg-green-500/20 text-green-400"
-                    }`}
-                  >
-                    {b.status}
-                  </span>
+                  {/* Details */}
+                  <div className="p-5 space-y-3">
+                    <h3 className="text-lg font-semibold">
+                      {b.turfName}
+                    </h3>
+
+                    <div className="text-sm text-zinc-300 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} />
+                        {b.date} • {b.slot}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Users size={14} />
+                        {b.players} Players
+                      </div>
+
+                      <div className="flex items-center gap-2 text-green-400">
+                        <IndianRupee size={14} />
+                        ₹{b.totalAmount}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                        isCancelled
+                          ? "bg-red-500/20 text-red-400"
+                          : "bg-green-500/20 text-green-400"
+                      }`}
+                    >
+                      {b.status}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

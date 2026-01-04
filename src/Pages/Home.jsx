@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Hero from "../components/Hero";
 import { Award, Clock, Star, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -7,22 +7,15 @@ import {
   collection,
   onSnapshot,
   query,
-  orderBy,
-  limit,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
 const Home = () => {
-  const [trendingTurfs, setTrendingTurfs] = useState([]);
-  const [newTurfs, setNewTurfs] = useState([]);
+  const [allTurfs, setAllTurfs] = useState([]);
 
-  /* ---------- TRENDING TURFS ---------- */
+  /* ---------- FETCH ALL TURFS (ONCE) ---------- */
   useEffect(() => {
-    const q = query(
-      collection(db, "turfs"),
-      orderBy("rating", "desc"),
-      limit(10)
-    );
+    const q = query(collection(db, "turfs"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
@@ -30,41 +23,33 @@ const Home = () => {
         return {
           id: doc.id,
           ...turf,
-          image: turf.coverImage, // ✅ IMAGE FIX
+          image: turf.coverImage,
           rating: turf.rating || 4.5,
+          createdAt: turf.createdAt?.toMillis
+            ? turf.createdAt.toMillis()
+            : 0,
         };
       });
 
-      setTrendingTurfs(data);
+      setAllTurfs(data);
     });
 
     return () => unsubscribe();
   }, []);
 
-  /* ---------- NEWLY ADDED TURFS ---------- */
-  useEffect(() => {
-    const q = query(
-      collection(db, "turfs"),
-      orderBy("createdAt", "desc"),
-      limit(10)
-    );
+  /* ---------- DERIVED SECTIONS ---------- */
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => {
-        const turf = doc.data();
-        return {
-          id: doc.id,
-          ...turf,
-          image: turf.coverImage, // ✅ IMAGE FIX
-          rating: turf.rating || 4.5,
-        };
-      });
+  const trendingTurfs = useMemo(() => {
+    return [...allTurfs]
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 10);
+  }, [allTurfs]);
 
-      setNewTurfs(data);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const newTurfs = useMemo(() => {
+    return [...allTurfs]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 10);
+  }, [allTurfs]);
 
   return (
     <div>
@@ -89,28 +74,30 @@ const Home = () => {
             {
               icon: Clock,
               label: "Available Now",
-              path: "/turfs?status=available",
+              path: "/turfs",
               color: "bg-blue-500",
             },
             {
               icon: Award,
               label: "Premium",
-              path: "/turfs?type=premium",
+              path: "/turfs",
               color: "bg-purple-500",
             },
           ].map((category, index) => (
             <Link
               key={index}
               to={category.path}
-              className={`${category.color} p-4 rounded-xl flex items-center justify-center gap-2 text-white hover:opacity-80 transition-opacity`}
+              className={`${category.color} p-4 rounded-xl flex items-center justify-center gap-2 text-white hover:opacity-80 transition`}
             >
               <category.icon className="w-5 h-5" />
-              <span className="font-medium">{category.label}</span>
+              <span className="font-medium">
+                {category.label}
+              </span>
             </Link>
           ))}
         </div>
 
-        {/* Trending Turfs */}
+        {/* ---------- TRENDING ---------- */}
         <section className="mb-12">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -133,7 +120,7 @@ const Home = () => {
           )}
         </section>
 
-        {/* Newly Added Turfs */}
+        {/* ---------- NEWLY ADDED ---------- */}
         <section className="mb-12">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -155,6 +142,9 @@ const Home = () => {
             <p className="text-zinc-400">No turfs found</p>
           )}
         </section>
+
+        {/* ---------- ALL TURFS (OPTIONAL SECTION) ---------- */}
+        
       </main>
     </div>
   );

@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  signOut,
+} from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../firebase";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -11,6 +15,7 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("user");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -25,24 +30,35 @@ const Register = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
     try {
+      // 1️⃣ Create user
       const res = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
 
+      // 2️⃣ Save user in Firestore
       await setDoc(doc(db, "users", res.user.uid), {
         name,
         email,
         role,
+        emailVerified: false,
         createdAt: new Date(),
       });
 
-      role === "owner"
-        ? navigate("/owner/dashboard")
-        : navigate("/");
+      // 3️⃣ Send verification email
+      await sendEmailVerification(res.user);
+
+      // 4️⃣ Logout user until verified
+      await signOut(auth);
+
+      // 5️⃣ Show success message
+      setSuccess(
+        "Verification link has been sent to your email. Please verify before logging in."
+      );
     } catch (err) {
       setError(err.message || "Registration failed");
     }
@@ -51,7 +67,6 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 to-green-300 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-green-600">
@@ -69,9 +84,15 @@ const Register = () => {
           </div>
         )}
 
+        {/* Success */}
+        {success && (
+          <div className="mb-4 text-sm text-green-700 bg-green-100 px-4 py-2 rounded-lg">
+            {success}
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleRegister} className="space-y-4">
-          
           {/* Name */}
           <div>
             <label className="text-sm font-medium text-gray-700">
@@ -81,10 +102,9 @@ const Register = () => {
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="John Doe"
                 required
                 onChange={(e) => setName(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black placeholder:text-gray-400 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black focus:ring-2 focus:ring-green-400 focus:outline-none"
               />
             </div>
           </div>
@@ -98,10 +118,9 @@ const Register = () => {
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="email"
-                placeholder="you@example.com"
                 required
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black placeholder:text-gray-400 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black focus:ring-2 focus:ring-green-400 focus:outline-none"
               />
             </div>
           </div>
@@ -115,10 +134,9 @@ const Register = () => {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="password"
-                placeholder="••••••••"
                 required
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black placeholder:text-gray-400 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black focus:ring-2 focus:ring-green-400 focus:outline-none"
               />
             </div>
           </div>

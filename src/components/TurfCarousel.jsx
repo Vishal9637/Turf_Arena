@@ -15,7 +15,9 @@ const TurfCarousel = ({ turfs }) => {
 
   const prevSlide = () => {
     setStartIndex((prev) =>
-      prev === 0 ? Math.max(0, turfs.length - visibleTurfs) : prev - 1
+      prev === 0
+        ? Math.max(0, turfs.length - visibleTurfs)
+        : prev - 1
     );
   };
 
@@ -33,7 +35,8 @@ const TurfCarousel = ({ turfs }) => {
               key={turf.id}
               className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 flex-shrink-0 p-2"
             >
-              <Link to={`/turf/${turf.id}`}>
+              {/* ✅ FIXED ROUTE */}
+              <Link to={`/turfs/${turf.id}`} className="block h-full">
                 <TurfCard {...turf} />
               </Link>
             </div>
@@ -45,14 +48,14 @@ const TurfCarousel = ({ turfs }) => {
         <>
           <button
             onClick={prevSlide}
-            className="absolute left-0 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute left-0 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
           >
             <ChevronLeft className="w-6 h-6 text-white" />
           </button>
 
           <button
             onClick={nextSlide}
-            className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
           >
             <ChevronRight className="w-6 h-6 text-white" />
           </button>

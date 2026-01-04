@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  signOut,
+} from "firebase/auth";
 import { auth, db } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
@@ -9,24 +13,48 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setInfo("");
 
     try {
-      const res = await signInWithEmailAndPassword(auth, email, password);
-      const snap = await getDoc(doc(db, "users", res.user.uid));
+      // 1️⃣ Sign in
+      const res = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      const user = res.user;
+
+      // 2️⃣ Check email verification
+      if (!user.emailVerified) {
+        await sendEmailVerification(user);
+        await signOut(auth);
+
+        setError(
+          "Your email is not verified. We have sent you a verification link again. Please verify before logging in."
+        );
+        return;
+      }
+
+      // 3️⃣ Fetch user role
+      const snap = await getDoc(doc(db, "users", user.uid));
 
       if (!snap.exists()) {
-        setError("User account not found. Please register.");
+        await signOut(auth);
+        setError("User profile not found. Please register again.");
         return;
       }
 
       const role = snap.data().role;
 
+      // 4️⃣ Redirect based on role
       role === "owner"
         ? navigate("/owner/dashboard")
         : navigate("/");
@@ -38,10 +66,11 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 to-green-300 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-green-600">TurfArena</h1>
+          <h1 className="text-3xl font-bold text-green-600">
+            TurfArena
+          </h1>
           <p className="text-gray-500 mt-1">
             Login to book or manage turfs
           </p>
@@ -49,14 +78,20 @@ const Login = () => {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 text-sm text-red-600 bg-red-100 px-4 py-2 rounded-lg">
+          <div className="mb-4 text-sm text-red-700 bg-red-100 px-4 py-2 rounded-lg">
             {error}
+          </div>
+        )}
+
+        {/* Info */}
+        {info && (
+          <div className="mb-4 text-sm text-green-700 bg-green-100 px-4 py-2 rounded-lg">
+            {info}
           </div>
         )}
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-4">
-          
           {/* Email */}
           <div>
             <label className="text-sm font-medium text-gray-700">
@@ -66,10 +101,9 @@ const Login = () => {
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="email"
-                placeholder="you@example.com"
                 required
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black placeholder:text-gray-400 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black focus:ring-2 focus:ring-green-400 focus:outline-none"
               />
             </div>
           </div>
@@ -83,10 +117,9 @@ const Login = () => {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="password"
-                placeholder="••••••••"
                 required
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black placeholder:text-gray-400 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 border rounded-xl text-black focus:ring-2 focus:ring-green-400 focus:outline-none"
               />
             </div>
           </div>

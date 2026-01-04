@@ -2,7 +2,13 @@ import { useState } from "react";
 import { addDoc, collection } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
-import { Upload, MapPin, IndianRupee, X } from "lucide-react";
+import {
+  Upload,
+  MapPin,
+  IndianRupee,
+  X,
+  Map,
+} from "lucide-react";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 
 const AddTurf = () => {
@@ -13,6 +19,8 @@ const AddTurf = () => {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [sports, setSports] = useState([]);
+
+  const [mapLink, setMapLink] = useState("");
 
   const [coverImage, setCoverImage] = useState(null);
   const [coverPreview, setCoverPreview] = useState(null);
@@ -30,6 +38,23 @@ const AddTurf = () => {
         ? prev.filter((s) => s !== sport)
         : [...prev, sport]
     );
+  };
+
+  /* ---------- GOOGLE MAP EMBED FIX ---------- */
+  const getEmbedMap = () => {
+    if (!mapLink) return null;
+
+    // If user pastes lat,lng
+    if (mapLink.includes(",")) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(
+        mapLink
+      )}&output=embed`;
+    }
+
+    // Full Google Maps URL or place name
+    return `https://www.google.com/maps?q=${encodeURIComponent(
+      mapLink
+    )}&output=embed`;
   };
 
   const handleCoverChange = (file) => {
@@ -59,7 +84,7 @@ const AddTurf = () => {
     e.preventDefault();
 
     if (!coverImage) {
-      alert("Cover image required");
+      alert("Cover image is required");
       return;
     }
 
@@ -67,7 +92,6 @@ const AddTurf = () => {
       setLoading(true);
 
       const coverUrl = await uploadToCloudinary(coverImage);
-
       const galleryUrls = await Promise.all(
         galleryImages.map((img) => uploadToCloudinary(img))
       );
@@ -81,16 +105,19 @@ const AddTurf = () => {
         sports,
         coverImage: coverUrl,
         galleryImages: galleryUrls,
+        mapLink,
         createdAt: new Date(),
       });
 
       alert("Turf added successfully");
 
+      // Reset
       setName("");
       setCity("");
       setPrice("");
       setDescription("");
       setSports([]);
+      setMapLink("");
       setCoverImage(null);
       setCoverPreview(null);
       setGalleryImages([]);
@@ -104,90 +131,129 @@ const AddTurf = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
-      <h1 className="text-3xl font-bold mb-6">Add New Turf</h1>
+    <div className="max-w-6xl mx-auto px-6 py-10">
+      <h1 className="text-3xl font-bold mb-6 text-white">
+        Add New Turf
+      </h1>
 
       <form
         onSubmit={handleAddTurf}
-        className="bg-white p-8 rounded-2xl shadow space-y-6"
+        className="bg-zinc-900 p-8 rounded-2xl space-y-8 text-white"
       >
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Turf Name"
-          required
-          className="w-full p-3 border rounded-xl"
-        />
-
-        <div className="relative">
-          <MapPin className="absolute left-3 top-3 text-gray-400" />
+        {/* BASIC INFO */}
+        <div className="grid md:grid-cols-2 gap-6">
           <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="City"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Turf Name"
             required
-            className="w-full pl-10 p-3 border rounded-xl"
+            className="w-full p-3 bg-zinc-800 rounded-xl"
           />
+
+          <div className="relative">
+            <MapPin className="absolute left-3 top-3 text-zinc-400" />
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              required
+              className="w-full pl-10 p-3 bg-zinc-800 rounded-xl"
+            />
+          </div>
         </div>
 
         <div className="relative">
-          <IndianRupee className="absolute left-3 top-3 text-gray-400" />
+          <IndianRupee className="absolute left-3 top-3 text-zinc-400" />
           <input
             type="number"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="Price per hour"
             required
-            className="w-full pl-10 p-3 border rounded-xl"
+            className="w-full pl-10 p-3 bg-zinc-800 rounded-xl"
           />
         </div>
 
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description"
+          placeholder="Turf description"
           rows="4"
-          className="w-full p-3 border rounded-xl"
+          className="w-full p-3 bg-zinc-800 rounded-xl"
         />
 
-        <div className="flex flex-wrap gap-3">
-          {sportOptions.map((sport) => (
-            <button
-              type="button"
-              key={sport}
-              onClick={() => toggleSport(sport)}
-              className={`px-4 py-2 rounded-full border ${
-                sports.includes(sport)
-                  ? "bg-green-500 text-white"
-                  : ""
-              }`}
-            >
-              {sport}
-            </button>
-          ))}
+        {/* SPORTS */}
+        <div>
+          <p className="mb-2 text-sm text-zinc-400">
+            Sports Available
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {sportOptions.map((sport) => (
+              <button
+                type="button"
+                key={sport}
+                onClick={() => toggleSport(sport)}
+                className={`px-4 py-2 rounded-full border ${
+                  sports.includes(sport)
+                    ? "bg-green-500 text-black"
+                    : "border-zinc-700"
+                }`}
+              >
+                {sport}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Cover Image */}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => handleCoverChange(e.target.files[0])}
-        />
+        {/* MAP */}
+        <div>
+          <p className="mb-2 text-sm text-zinc-400 flex items-center gap-2">
+            <Map size={16} /> Google Maps Location
+          </p>
 
-        {coverPreview && (
-          <div className="relative w-40">
-            <img src={coverPreview} className="rounded-xl" />
-            <button
-              type="button"
-              onClick={removeCover}
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
+          <input
+            value={mapLink}
+            onChange={(e) => setMapLink(e.target.value)}
+            placeholder="Paste place name, address or lat,lng"
+            className="w-full p-3 bg-zinc-800 rounded-xl"
+          />
 
-        {/* Gallery */}
+          {mapLink && (
+            <iframe
+              title="Map Preview"
+              src={getEmbedMap()}
+              className="w-full h-64 rounded-xl mt-4 border border-zinc-700"
+              loading="lazy"
+            />
+          )}
+        </div>
+
+        {/* COVER */}
+        <div>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleCoverChange(e.target.files[0])}
+          />
+
+          {coverPreview && (
+            <div className="relative w-40 mt-3">
+              <img
+                src={coverPreview}
+                className="rounded-xl"
+              />
+              <button
+                type="button"
+                onClick={removeCover}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* GALLERY */}
         <input
           type="file"
           accept="image/*"
@@ -212,7 +278,7 @@ const AddTurf = () => {
 
         <button
           disabled={loading}
-          className="w-full bg-green-500 text-white py-3 rounded-xl flex justify-center gap-2"
+          className="w-full bg-green-500 text-black py-3 rounded-xl flex justify-center gap-2 font-semibold"
         >
           <Upload />
           {loading ? "Uploading..." : "Add Turf"}

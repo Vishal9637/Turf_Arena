@@ -5,100 +5,132 @@ import { collection, onSnapshot, query, limit } from "firebase/firestore";
 import { db } from "../firebase";
 
 const Hero = () => {
-  const [turfs, setTurfs] = useState([]);
+  const [allTurfs, setAllTurfs] = useState([]);
+  const [heroTurfs, setHeroTurfs] = useState([]);
   const [currentTurf, setCurrentTurf] = useState(0);
+  const [userCity, setUserCity] = useState(null);
+
+  /* ---------- USER LOCATION ---------- */
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+
+          const city =
+            data.address.city ||
+            data.address.town ||
+            data.address.village;
+
+          if (city) setUserCity(city.toLowerCase());
+        } catch {}
+      },
+      () => {}
+    );
+  }, []);
 
   /* ---------- FETCH TURFS ---------- */
   useEffect(() => {
-    const q = query(collection(db, "turfs"), limit(5));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+    const q = query(collection(db, "turfs"), limit(10));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       }));
-
-      setTurfs(list);
+      setAllTurfs(list);
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
+
+  /* ---------- LOCATION FILTER ---------- */
+  useEffect(() => {
+    if (!allTurfs.length) return;
+
+    if (userCity) {
+      const local = allTurfs.filter(
+        (t) => t.city?.toLowerCase().includes(userCity)
+      );
+      if (local.length) {
+        setHeroTurfs(local.slice(0, 5));
+        return;
+      }
+    }
+
+    setHeroTurfs(allTurfs.slice(0, 5));
+  }, [allTurfs, userCity]);
 
   /* ---------- AUTO SLIDER ---------- */
   useEffect(() => {
-    if (turfs.length === 0) return;
-
+    if (!heroTurfs.length) return;
     const timer = setInterval(() => {
-      setCurrentTurf((prev) => (prev + 1) % turfs.length);
-    }, 8000);
-
+      setCurrentTurf((p) => (p + 1) % heroTurfs.length);
+    }, 7000);
     return () => clearInterval(timer);
-  }, [turfs]);
+  }, [heroTurfs]);
 
-  if (turfs.length === 0) {
+  if (!heroTurfs.length) {
     return (
-      <div className="h-[90vh] flex items-center justify-center text-zinc-400">
+      <div className="min-h-[70vh] flex items-center justify-center text-zinc-400">
         Loading featured turfs...
       </div>
     );
   }
 
-  const turf = turfs[currentTurf];
+  const turf = heroTurfs[currentTurf];
 
   return (
-    <div className="relative h-[90vh] bg-gradient-to-b from-transparent to-black">
-      {/* Background Image */}
+    <section className="relative min-h-[70vh] bg-gradient-to-b from-black/70 to-black">
+      {/* Background */}
       <div
-        className="absolute inset-0 bg-cover bg-center transition-all duration-1000 gradient-mask"
-        style={{
-          backgroundImage: `url('${turf.coverImage}')`,
-        }}
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: `url(${turf.coverImage})` }}
       >
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
       </div>
 
       {/* Content */}
-      <div className="relative max-w-7xl mx-auto px-6 h-full flex items-center">
-        <div className="max-w-2xl">
-          {/* Badges */}
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            {/* Rating */}
-            <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full">
-              <Star className="w-5 h-5 text-green-400 fill-current" />
+      <div className="relative max-w-7xl mx-auto px-6 py-16 grid lg:grid-cols-2 gap-12 items-center">
+        {/* LEFT CONTENT */}
+        <div>
+          <div className="flex flex-wrap gap-4 mb-4">
+            <span className="flex items-center gap-1 bg-black/50 px-3 py-1.5 rounded-full">
+              <Star className="w-4 h-4 text-green-400 fill-current" />
               <span className="text-green-400 font-semibold">
-                {turf.rating || 4.5} Rating
+                {turf.rating || 4.5}
               </span>
-            </div>
+            </span>
 
-            {/* City */}
-            <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full">
-              <MapPin className="w-5 h-5 text-zinc-300" />
+            <span className="flex items-center gap-1 bg-black/50 px-3 py-1.5 rounded-full">
+              <MapPin className="w-4 h-4 text-zinc-300" />
               <span className="text-zinc-300">{turf.city}</span>
-            </div>
+            </span>
 
-            {/* Price */}
-            <div className="flex items-center gap-1 bg-green-500/90 text-black px-4 py-1.5 rounded-full font-semibold shadow-lg">
+            <span className="bg-green-500 text-black px-4 py-1.5 rounded-full font-semibold">
               ₹{turf.price}/hr
-            </div>
+            </span>
           </div>
 
-          {/* Title */}
-          <h1 className="text-5xl md:text-7xl font-bold mb-4 text-white">
+          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
             {turf.name}
           </h1>
 
-          {/* Description */}
           {turf.description && (
-            <p className="text-zinc-300 text-lg mb-8 line-clamp-3 max-w-xl">
+            <p className="text-zinc-300 text-base max-w-xl mb-8 line-clamp-3">
               {turf.description}
             </p>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex gap-4">
             <Link
               to={`/turfs/${turf.id}`}
-              className="bg-green-500 text-black px-8 py-3 rounded-xl font-semibold flex items-center gap-2 hover:bg-green-400 transition-all hover:scale-105 duration-300"
+              className="bg-green-500 text-black px-7 py-3 rounded-xl font-semibold flex items-center gap-2 hover:bg-green-400 transition"
             >
               <Calendar className="w-5 h-5" />
               Book Now
@@ -106,29 +138,41 @@ const Hero = () => {
 
             <Link
               to={`/turfs/${turf.id}`}
-              className="bg-zinc-900/80 backdrop-blur-md text-white px-8 py-3 rounded-xl font-semibold hover:bg-zinc-800 transition-all hover:scale-105 duration-300"
+              className="bg-zinc-900/80 text-white px-7 py-3 rounded-xl font-semibold hover:bg-zinc-800 transition"
             >
               View Details
             </Link>
           </div>
         </div>
 
-        {/* Slider Dots */}
-        <div className="absolute bottom-8 right-6 flex gap-2">
-          {turfs.map((_, index) => (
+        {/* RIGHT IMAGE */}
+        <div className="relative">
+          <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+            <img
+              src={turf.coverImage}
+              alt={turf.name}
+              className="w-full h-[420px] object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          </div>
+        </div>
+
+        {/* SLIDER DOTS */}
+        <div className="absolute bottom-6 right-6 flex gap-2">
+          {heroTurfs.map((_, i) => (
             <button
-              key={index}
-              onClick={() => setCurrentTurf(index)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                currentTurf === index
+              key={i}
+              onClick={() => setCurrentTurf(i)}
+              className={`h-1.5 rounded-full transition-all ${
+                currentTurf === i
                   ? "bg-green-500 w-8"
-                  : "bg-zinc-600 w-4 hover:bg-zinc-500"
+                  : "bg-zinc-600 w-4"
               }`}
             />
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

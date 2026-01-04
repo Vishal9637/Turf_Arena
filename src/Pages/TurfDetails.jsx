@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { useAuth } from "../context/AuthContext";
 import {
   MapPin,
   Star,
@@ -9,26 +10,44 @@ import {
   User,
   Phone,
   Mail,
+  X,
+  Map,
 } from "lucide-react";
 
 const TurfDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [turf, setTurf] = useState(null);
   const [owner, setOwner] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  /* ---------- GOOGLE MAP EMBED ---------- */
+  const getEmbedMap = (link) => {
+    if (!link) return null;
+    return `https://www.google.com/maps?q=${encodeURIComponent(
+      link
+    )}&output=embed`;
+  };
+
   /* ---------- FETCH TURF ---------- */
   useEffect(() => {
     const fetchTurf = async () => {
-      const snap = await getDoc(doc(db, "turfs", id));
-      if (snap.exists()) {
+      try {
+        const snap = await getDoc(doc(db, "turfs", id));
+        if (!snap.exists()) {
+          setTurf(null);
+          setLoading(false);
+          return;
+        }
+
         const turfData = { id: snap.id, ...snap.data() };
         setTurf(turfData);
 
-        // fetch owner details
-        if (turfData.ownerId) {
+        if (user && turfData.ownerId) {
           const ownerSnap = await getDoc(
             doc(db, "users", turfData.ownerId)
           );
@@ -36,12 +55,15 @@ const TurfDetails = () => {
             setOwner(ownerSnap.data());
           }
         }
+      } catch (err) {
+        console.error("Failed to load turf:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchTurf();
-  }, [id]);
+  }, [id, user]);
 
   if (loading) {
     return (
@@ -61,14 +83,13 @@ const TurfDetails = () => {
 
   return (
     <div className="text-white">
-      {/* ---------- HERO SECTION ---------- */}
+      {/* ---------- HERO ---------- */}
       <div className="relative h-[65vh]">
         <img
           src={turf.coverImage}
           alt={turf.name}
           className="w-full h-full object-cover"
         />
-
         <div className="absolute inset-0 bg-black/60" />
 
         <div className="absolute bottom-10 left-0 right-0">
@@ -106,11 +127,10 @@ const TurfDetails = () => {
         </div>
       </div>
 
-      {/* ---------- MAIN CONTENT ---------- */}
+      {/* ---------- MAIN ---------- */}
       <div className="max-w-6xl mx-auto px-6 py-12 grid lg:grid-cols-3 gap-10">
         {/* LEFT */}
         <div className="lg:col-span-2 space-y-12">
-          {/* About */}
           {turf.description && (
             <section>
               <h2 className="text-2xl font-semibold mb-3">
@@ -122,7 +142,6 @@ const TurfDetails = () => {
             </section>
           )}
 
-          {/* Sports */}
           {turf.sports?.length > 0 && (
             <section>
               <h2 className="text-2xl font-semibold mb-3">
@@ -141,27 +160,57 @@ const TurfDetails = () => {
             </section>
           )}
 
-          {/* Gallery */}
+          {/* ---------- GALLERY ---------- */}
           {turf.galleryImages?.length > 0 && (
             <section>
               <h2 className="text-2xl font-semibold mb-4">
                 Turf Gallery
               </h2>
+
               <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {turf.galleryImages.map((img, index) => (
                   <img
                     key={index}
                     src={img}
                     alt={`Turf ${index + 1}`}
-                    className="h-44 w-full object-cover rounded-xl hover:scale-105 transition-transform"
+                    onClick={() => setSelectedImage(img)}
+                    className="h-44 w-full object-cover rounded-xl cursor-pointer hover:scale-105 transition-transform"
                   />
                 ))}
               </div>
             </section>
           )}
 
+          {/* ---------- MAP SECTION ---------- */}
+          {turf.mapLink && (
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <Map className="text-green-400" />
+                Turf Location
+              </h2>
+
+              <div className="rounded-2xl overflow-hidden border border-zinc-800">
+                <iframe
+                  title="Turf Map"
+                  src={getEmbedMap(turf.mapLink)}
+                  className="w-full h-80"
+                  loading="lazy"
+                />
+              </div>
+
+              <a
+                href={turf.mapLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-3 text-green-400 hover:underline"
+              >
+                Open in Google Maps →
+              </a>
+            </section>
+          )}
+
           {/* ---------- OWNER DETAILS ---------- */}
-          {owner && (
+          {user && owner && (
             <section>
               <h2 className="text-2xl font-semibold mb-4">
                 Turf Owner Details
@@ -200,7 +249,7 @@ const TurfDetails = () => {
           )}
         </div>
 
-        {/* RIGHT SIDEBAR */}
+        {/* RIGHT */}
         <div className="bg-zinc-900 rounded-2xl p-6 h-fit sticky top-24">
           <h3 className="text-xl font-semibold mb-3">
             Book this turf
@@ -211,7 +260,11 @@ const TurfDetails = () => {
           </p>
 
           <button
-            onClick={() => navigate(`/booking/${turf.id}`)}
+            onClick={() =>
+              user
+                ? navigate(`/booking/${turf.id}`)
+                : navigate("/login")
+            }
             className="w-full bg-green-500 text-black py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-400"
           >
             <Calendar className="w-5 h-5" />
@@ -220,10 +273,36 @@ const TurfDetails = () => {
         </div>
       </div>
 
+      {/* ---------- FULLSCREEN IMAGE ---------- */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
+          onClick={() => setSelectedImage(null)}
+        >
+          <button
+            onClick={() => setSelectedImage(null)}
+            className="absolute top-6 right-6 text-white hover:text-red-400"
+          >
+            <X size={32} />
+          </button>
+
+          <img
+            src={selectedImage}
+            alt="Full view"
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* MOBILE CTA */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-zinc-900 p-4 border-t border-zinc-800">
         <button
-          onClick={() => navigate(`/booking/${turf.id}`)}
+          onClick={() =>
+            user
+              ? navigate(`/booking/${turf.id}`)
+              : navigate("/login")
+          }
           className="w-full bg-green-500 text-black py-3 rounded-xl font-semibold"
         >
           Book Now • ₹{turf.price}/hr
