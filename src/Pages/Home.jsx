@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Hero from "../components/Hero";
 import {
-  Award,
   Clock,
-  Star,
-  TrendingUp,
   Trophy,
   Flame,
   Shield,
@@ -22,37 +19,14 @@ import {
 import { db } from "../firebase";
 
 const Home = () => {
-  const [trendingTurfs, setTrendingTurfs] = useState([]);
   const [newTurfs, setNewTurfs] = useState([]);
-
-  /* ---------- TRENDING TURFS ---------- */
-  useEffect(() => {
-    const q = query(
-      collection(db, "turfs"),
-      orderBy("rating", "desc"),
-      limit(10)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setTrendingTurfs(
-        snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          image: doc.data().coverImage,
-          rating: doc.data().rating || 4.5,
-        }))
-      );
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   /* ---------- NEWLY ADDED TURFS ---------- */
   useEffect(() => {
     const q = query(
       collection(db, "turfs"),
       orderBy("createdAt", "desc"),
-      limit(10)
+      limit(6) // ✅ only 6 turfs for mobile
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -74,7 +48,7 @@ const Home = () => {
       <Hero />
 
       <main className="max-w-7xl mx-auto px-6 py-10">
-        {/* ================= QUICK ACCESS (SPORTS THEME) ================= */}
+        {/* ================= QUICK ACCESS ================= */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-14">
           {[
             {
@@ -90,7 +64,7 @@ const Home = () => {
               gradient: "from-yellow-400 to-orange-500",
             },
             {
-              label: "Available Now",
+              label: "Available",
               icon: Zap,
               path: "/turfs?status=available",
               gradient: "from-blue-500 to-cyan-500",
@@ -105,27 +79,15 @@ const Home = () => {
             <Link
               key={i}
               to={item.path}
-              className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} p-5 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1`}
+              className={`rounded-2xl bg-gradient-to-br ${item.gradient} p-5 text-white shadow-lg flex flex-col items-center gap-3`}
             >
-              {/* Glow */}
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition" />
-
-              {/* Content */}
-              <div className="relative flex flex-col items-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-black/30 flex items-center justify-center backdrop-blur-md">
-                  <item.icon className="w-7 h-7" />
-                </div>
-
-                <span className="font-semibold tracking-wide">
-                  {item.label}
-                </span>
+              <div className="w-14 h-14 rounded-full bg-black/30 flex items-center justify-center">
+                <item.icon className="w-7 h-7" />
               </div>
+              <span className="font-semibold">{item.label}</span>
             </Link>
           ))}
         </div>
-
-        {/* ================= TRENDING TURFS ================= */}
-      
 
         {/* ================= NEWLY ADDED TURFS ================= */}
         <section className="mb-14">
@@ -143,11 +105,38 @@ const Home = () => {
             </Link>
           </div>
 
-          {newTurfs.length > 0 ? (
+          {/* DESKTOP → CAROUSEL */}
+          <div className="hidden md:block">
             <TurfCarousel turfs={newTurfs} />
-          ) : (
-            <p className="text-zinc-400">No turfs found</p>
-          )}
+          </div>
+
+          {/* MOBILE → 2 CARDS PER ROW */}
+          <div className="grid grid-cols-2 gap-4 md:hidden">
+            {newTurfs.map((turf) => (
+              <Link
+                key={turf.id}
+                to={`/turfs/${turf.id}`}
+                className="bg-zinc-900 rounded-xl overflow-hidden shadow"
+              >
+                <img
+                  src={turf.image}
+                  alt={turf.name}
+                  className="h-28 w-full object-cover"
+                />
+                <div className="p-3 space-y-1">
+                  <h3 className="text-sm font-semibold text-white truncate">
+                    {turf.name}
+                  </h3>
+                  <p className="text-xs text-zinc-400 truncate">
+                    {turf.city}
+                  </p>
+                  <p className="text-xs text-green-400 font-semibold">
+                    ₹{turf.price}/hr
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
         </section>
       </main>
     </div>

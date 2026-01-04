@@ -12,12 +12,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
-import {
-  collection,
-  onSnapshot,
-  query,
-  limit,
-} from "firebase/firestore";
+import { collection, onSnapshot, query, limit } from "firebase/firestore";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,15 +26,11 @@ const Navbar = () => {
   /* ---------- REAL-TIME TURF FETCH ---------- */
   useEffect(() => {
     const q = query(collection(db, "turfs"), limit(100));
-
     const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setAllTurfs(data);
+      setAllTurfs(
+        snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      );
     });
-
     return () => unsub();
   }, []);
 
@@ -49,15 +40,16 @@ const Navbar = () => {
       setResults([]);
       return;
     }
-
     const q = searchQuery.toLowerCase();
-    const filtered = allTurfs.filter(
-      (turf) =>
-        turf.name?.toLowerCase().includes(q) ||
-        turf.city?.toLowerCase().includes(q)
+    setResults(
+      allTurfs
+        .filter(
+          (t) =>
+            t.name?.toLowerCase().includes(q) ||
+            t.city?.toLowerCase().includes(q)
+        )
+        .slice(0, 6)
     );
-
-    setResults(filtered.slice(0, 6));
   }, [searchQuery, allTurfs]);
 
   const handleLogout = async () => {
@@ -75,19 +67,63 @@ const Navbar = () => {
 
   return (
     <nav className="bg-white/40 backdrop-blur-md border-b border-green-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4">
         {/* ================= TOP BAR ================= */}
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center gap-3 h-16">
           {/* LOGO */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 shrink-0">
             <MapPin className="w-7 h-7 text-green-500" />
-            <span className="text-xl font-bold text-green-500">
+            <span className="text-lg font-bold text-green-500">
               TurfArena
             </span>
           </Link>
 
-          {/* DESKTOP */}
-          <div className="hidden md:flex items-center gap-8 relative">
+          {/* MOBILE SEARCH (ALWAYS VISIBLE) */}
+          <div className="relative flex-1 md:hidden">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-4 h-4" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search turf or city..."
+              className="w-full bg-white text-black pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
+            />
+
+            {results.length > 0 && (
+              <div className="absolute mt-2 w-full bg-white rounded-xl shadow-lg overflow-hidden z-50">
+                {results.map((turf) => (
+                  <button
+                    key={turf.id}
+                    onClick={() => goToTurf(turf.id)}
+                    className="flex items-center gap-3 px-4 py-3 w-full hover:bg-green-50"
+                  >
+                    <img
+                      src={turf.coverImage}
+                      className="w-10 h-10 rounded-lg object-cover"
+                    />
+                    <div className="text-left">
+                      <p className="font-medium text-black">
+                        {turf.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {turf.city}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* MOBILE MENU BUTTON */}
+          <button
+            className="md:hidden shrink-0"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X /> : <Menu />}
+          </button>
+
+          {/* ================= DESKTOP ================= */}
+          <div className="hidden md:flex items-center gap-8 ml-auto">
             {/* SEARCH */}
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-5 h-5" />
@@ -95,7 +131,7 @@ const Navbar = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search turf or city..."
-                className="bg-white/70 text-gray-800 pl-10 pr-4 py-2 rounded-xl w-full"
+                className="bg-white/70 text-black pl-10 pr-4 py-2 rounded-xl w-full"
               />
 
               {results.length > 0 && (
@@ -111,7 +147,9 @@ const Navbar = () => {
                         className="w-12 h-12 rounded-lg object-cover"
                       />
                       <div className="text-left">
-                        <p className="font-medium">{turf.name}</p>
+                        <p className="font-medium text-black">
+                          {turf.name}
+                        </p>
                         <p className="text-sm text-gray-500">
                           {turf.city}
                         </p>
@@ -126,7 +164,10 @@ const Navbar = () => {
             <Link to="/" className="text-gray-700 hover:text-green-500">
               Home
             </Link>
-            <Link to="/turfs" className="text-gray-700 hover:text-green-500">
+            <Link
+              to="/turfs"
+              className="text-gray-700 hover:text-green-500"
+            >
               Turfs
             </Link>
 
@@ -165,46 +206,11 @@ const Navbar = () => {
               </div>
             )}
           </div>
-
-          {/* MOBILE TOGGLE */}
-          <button
-            className="md:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X /> : <Menu />}
-          </button>
         </div>
 
         {/* ================= MOBILE MENU ================= */}
         {isMenuOpen && (
           <div className="md:hidden py-4 space-y-4">
-            {/* SEARCH */}
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search turf or city..."
-              className="w-full bg-white px-4 py-2 rounded-xl"
-            />
-
-            {/* SEARCH RESULTS */}
-            {results.map((turf) => (
-              <button
-                key={turf.id}
-                onClick={() => goToTurf(turf.id)}
-                className="flex items-center gap-3 bg-white p-3 rounded-lg w-full"
-              >
-                <img
-                  src={turf.coverImage}
-                  className="w-12 h-12 rounded-lg object-cover"
-                />
-                <div className="text-left">
-                  <p className="font-medium">{turf.name}</p>
-                  <p className="text-sm text-gray-500">{turf.city}</p>
-                </div>
-              </button>
-            ))}
-
-            {/* NAV LINKS */}
             <Link to="/" onClick={() => setIsMenuOpen(false)} className="block">
               Home
             </Link>
@@ -216,7 +222,6 @@ const Navbar = () => {
               Turfs
             </Link>
 
-            {/* AUTH */}
             {!user ? (
               <Link
                 to="/login"
