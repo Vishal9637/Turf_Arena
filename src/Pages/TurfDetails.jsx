@@ -22,16 +22,14 @@ const TurfDetails = () => {
   const [turf, setTurf] = useState(null);
   const [owner, setOwner] = useState(null);
   const [loading, setLoading] = useState(true);
-
   const [selectedImage, setSelectedImage] = useState(null);
 
-  /* ---------- GOOGLE MAP EMBED ---------- */
-  const getEmbedMap = (link) => {
-    if (!link) return null;
-    return `https://www.google.com/maps?q=${encodeURIComponent(
-      link
-    )}&output=embed`;
-  };
+  /* ---------- MAP HELPERS ---------- */
+  const getMapEmbedUrl = (query) =>
+    `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+
+  const getMapBrowserUrl = (query) =>
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 
   /* ---------- FETCH TURF ---------- */
   useEffect(() => {
@@ -142,24 +140,6 @@ const TurfDetails = () => {
             </section>
           )}
 
-          {turf.sports?.length > 0 && (
-            <section>
-              <h2 className="text-2xl font-semibold mb-3">
-                Sports Available
-              </h2>
-              <div className="flex flex-wrap gap-3">
-                {turf.sports.map((sport) => (
-                  <span
-                    key={sport}
-                    className="px-4 py-2 bg-zinc-800 rounded-full text-sm text-zinc-300"
-                  >
-                    {sport}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
           {/* ---------- GALLERY ---------- */}
           {turf.galleryImages?.length > 0 && (
             <section>
@@ -181,7 +161,7 @@ const TurfDetails = () => {
             </section>
           )}
 
-          {/* ---------- MAP SECTION ---------- */}
+          {/* ---------- MAP ---------- */}
           {turf.mapLink && (
             <section>
               <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
@@ -192,14 +172,14 @@ const TurfDetails = () => {
               <div className="rounded-2xl overflow-hidden border border-zinc-800">
                 <iframe
                   title="Turf Map"
-                  src={getEmbedMap(turf.mapLink)}
+                  src={getMapEmbedUrl(turf.mapLink)}
                   className="w-full h-80"
                   loading="lazy"
                 />
               </div>
 
               <a
-                href={turf.mapLink}
+                href={getMapBrowserUrl(turf.mapLink)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block mt-3 text-green-400 hover:underline"
@@ -209,7 +189,7 @@ const TurfDetails = () => {
             </section>
           )}
 
-          {/* ---------- OWNER DETAILS ---------- */}
+          {/* ---------- OWNER ---------- */}
           {user && owner && (
             <section>
               <h2 className="text-2xl font-semibold mb-4">
@@ -237,13 +217,6 @@ const TurfDetails = () => {
                     {owner.phone}
                   </p>
                 )}
-
-                {owner.city && (
-                  <p className="flex items-center gap-2 text-zinc-300">
-                    <MapPin size={16} />
-                    {owner.city}
-                  </p>
-                )}
               </div>
             </section>
           )}
@@ -255,59 +228,35 @@ const TurfDetails = () => {
             Book this turf
           </h3>
 
-          <p className="text-zinc-400 mb-6">
-            Choose your slot and book instantly.
-          </p>
-
           <button
             onClick={() =>
               user
                 ? navigate(`/booking/${turf.id}`)
                 : navigate("/login")
             }
-            className="w-full bg-green-500 text-black py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-400"
+            className="w-full bg-green-500 text-black py-3 rounded-xl font-semibold hover:bg-green-400"
           >
-            <Calendar className="w-5 h-5" />
             Book Now
           </button>
         </div>
       </div>
 
-      {/* ---------- FULLSCREEN IMAGE ---------- */}
+      {/* ---------- FULL IMAGE ---------- */}
       {selectedImage && (
         <div
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
           onClick={() => setSelectedImage(null)}
         >
-          <button
-            onClick={() => setSelectedImage(null)}
-            className="absolute top-6 right-6 text-white hover:text-red-400"
-          >
-            <X size={32} />
-          </button>
-
           <img
             src={selectedImage}
             alt="Full view"
             className="max-h-[90vh] max-w-[90vw] object-contain"
-            onClick={(e) => e.stopPropagation()}
           />
+          <button className="absolute top-6 right-6 text-white">
+            <X size={32} />
+          </button>
         </div>
       )}
-
-      {/* MOBILE CTA */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-zinc-900 p-4 border-t border-zinc-800">
-        <button
-          onClick={() =>
-            user
-              ? navigate(`/booking/${turf.id}`)
-              : navigate("/login")
-          }
-          className="w-full bg-green-500 text-black py-3 rounded-xl font-semibold"
-        >
-          Book Now • ₹{turf.price}/hr
-        </button>
-      </div>
     </div>
   );
 };
